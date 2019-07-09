@@ -4,6 +4,17 @@ all: only_build only_test
 
 ensure:
 	cd misc/test && dep ensure -v
+	
+	# Install aws-iam-authenticator
+	# See: https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html
+	curl -o aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.13.7/2019-06-11/bin/linux/amd64/aws-iam-authenticator
+	chmod +x ./aws-iam-authenticator
+	sudo mv aws-iam-authenticator /usr/local/bin
+	
+	# Install kubectl
+	curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+	chmod +x ./kubectl
+	sudo mv kubectl /usr/local/bin
 
 only_build:
 

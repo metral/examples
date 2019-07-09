@@ -3,10 +3,12 @@
 package test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -698,6 +700,101 @@ func TestExamples(t *testing.T) {
 		//		"gcp:zone": "us-central1-a",
 		//	},
 		//}),
+		base.With(integration.ProgramTestOptions{
+			Dir: path.Join(cwd, "..", "..", "aws-ts-eks-migrate-nodegroups"),
+			Config: map[string]string{
+				"aws:region": awsRegion,
+			},
+			Dependencies: []string{
+				"@pulumi/eks",
+			},
+			EditDirs: []integration.EditDir{
+				// Add the new, 4xlarge node group
+				{
+					Dir:      path.Join(cwd, "..", "..", "aws-ts-eks-migrate-nodegroups", "steps", "step1"),
+					Additive: true,
+					ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
+						maxWait := 10 * time.Minute
+						endpoint := fmt.Sprintf("%s/echoserver", stack.Outputs["nginxServiceUrl"].(string))
+						headers := map[string]string{
+							"Host": "apps.example.com",
+						}
+						assertHTTPResultWithRetry(t, endpoint, headers, maxWait, func(body string) bool {
+							return assert.NotEmpty(t, body, "Body should not be empty")
+						})
+					},
+				},
+				// Retarget NGINX to node select 4xlarge nodegroup, and force
+				// its migration via rolling update.
+				{
+					Dir:      path.Join(cwd, "..", "..", "aws-ts-eks-migrate-nodegroups", "steps", "step2"),
+					Additive: true,
+					ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
+						maxWait := 10 * time.Minute
+						endpoint := fmt.Sprintf("%s/echoserver", stack.Outputs["nginxServiceUrl"].(string))
+						headers := map[string]string{
+							"Host": "apps.example.com",
+						}
+						assertHTTPResultWithRetry(t, endpoint, headers, maxWait, func(body string) bool {
+							return assert.NotEmpty(t, body, "Body should not be empty")
+						})
+
+						var err error
+						var out []byte
+						scriptsDir := path.Join(cwd, "..", "..", "aws-ts-eks-migrate-nodegroups", "scripts")
+
+						// Extract kubeconfig and write it to a temp file
+						kubeconfig, err := json.Marshal(stack.Outputs["kubeconfig"])
+						if !assert.NoError(t, err, "expected kubeconfig json marshaling to not error: %v", err) {
+							return
+						}
+						kubeconfigFile, err := ioutil.TempFile("/tmp", "kubeconfig-*.json")
+						if !assert.NoError(t, err, "expected tempfile to be created: %v", err) {
+							return
+						}
+						kubeconfigFilePath, err := filepath.Abs(filepath.Dir(kubeconfigFile.Name()))
+						if !assert.NoError(t, err, "expected tempfile path to be returned: %v", err) {
+							return
+						}
+						err = ioutil.WriteFile(kubeconfigFilePath, kubeconfig, 0644)
+						if !assert.NoError(t, err, "expected kubeconfig to be written to tempfile with no error: %v", err) {
+							return
+						}
+						os.Setenv("KUBECONFIG", kubeconfigFilePath)
+						defer os.Remove(kubeconfigFile.Name())
+
+						// Exec kubectl drain
+						out, err = exec.Command("/bin/bash", path.Join(scriptsDir, "drain-t3.2xlarge-nodes.sh")).Output()
+						if !assert.NoError(t, err, "expected no errors during kubectl drain: %v", err) {
+							return
+						}
+						t.Logf("kubectl drain output:%s", out)
+
+						// Exec kubectl delete
+						out, err = exec.Command("/bin/bash", path.Join(scriptsDir, "delete-t3.2xlarge-nodes.sh")).Output()
+						if !assert.NoError(t, err, "expected no errors during kubectl delete: %v", err) {
+							return
+						}
+						t.Logf("kubectl delete output:%s", out)
+					},
+				},
+				// Remove the 2xlarge node group
+				{
+					Dir:      path.Join(cwd, "..", "..", "aws-ts-eks-migrate-nodegroups", "steps", "step3"),
+					Additive: true,
+					ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
+						maxWait := 10 * time.Minute
+						endpoint := fmt.Sprintf("%s/echoserver", stack.Outputs["nginxServiceUrl"].(string))
+						headers := map[string]string{
+							"Host": "apps.example.com",
+						}
+						assertHTTPResultWithRetry(t, endpoint, headers, maxWait, func(body string) bool {
+							return assert.NotEmpty(t, body, "Body should not be empty")
+						})
+					},
+				},
+			},
+		}),
 	}
 
 	longTests := []integration.ProgramTestOptions{
@@ -709,7 +806,7 @@ func TestExamples(t *testing.T) {
 				"sshPublicKey":      "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDeREOgHTUgPT00PTr7iQF9JwZQ4QF1VeaLk2nHKRvWYOCiky6hDtzhmLM0k0Ib9Y7cwFbhObR+8yZpCgfSX3Hc3w2I1n6lXFpMfzr+wdbpx97N4fc1EHGUr9qT3UM1COqN6e/BEosQcMVaXSCpjqL1jeNaRDAnAS2Y3q1MFeXAvj9rwq8EHTqqAc1hW9Lq4SjSiA98STil5dGw6DWRhNtf6zs4UBy8UipKsmuXtclR0gKnoEP83ahMJOpCIjuknPZhb+HsiNjFWf+Os9U6kaS5vGrbXC8nggrVE57ow88pLCBL+3mBk1vBg6bJuLBCp2WTqRzDMhSDQ3AcWqkucGqf dremy@remthinkpad",
 			},
 			ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
-				assertHTTPResult(t, stack.Outputs["serviceIP"], func(body string) bool {
+				assertHTTPResult(t, stack.Outputs["serviceIP"], nil, func(body string) bool {
 					return assert.Contains(t, body, "It works!")
 				})
 			},
@@ -741,11 +838,11 @@ func TestExamples(t *testing.T) {
 	}
 }
 
-func assertHTTPResult(t *testing.T, output interface{}, check func(string) bool) bool {
-	return assertHTTPResultWithRetry(t, output, 5*time.Minute, check)
+func assertHTTPResult(t *testing.T, output interface{}, headers map[string]string, check func(string) bool) bool {
+	return assertHTTPResultWithRetry(t, output, headers, 5*time.Minute, check)
 }
 
-func assertHTTPResultWithRetry(t *testing.T, output interface{}, maxWait time.Duration, check func(string) bool) bool {
+func assertHTTPResultWithRetry(t *testing.T, output interface{}, headers map[string]string, maxWait time.Duration, check func(string) bool) bool {
 	hostname, ok := output.(string)
 	if !assert.True(t, ok, fmt.Sprintf("expected `%s` output", output)) {
 		return false
@@ -760,7 +857,21 @@ func assertHTTPResultWithRetry(t *testing.T, output interface{}, maxWait time.Du
 	count, sleep := 0, 0
 	for true {
 		now := time.Now()
-		resp, err = http.Get(hostname)
+		req, err := http.NewRequest("GET", hostname, nil)
+		if !assert.NoError(t, err, "error reading request: %v", err) {
+			return false
+		}
+
+		for k, v := range headers {
+			req.Header.Set(k, v)
+		}
+
+		client := &http.Client{Timeout: time.Second * 10}
+
+		resp, err = client.Do(req)
+		if !assert.NoError(t, err, "error reading response: %v", err) {
+			return false
+		}
 		if err == nil && resp.StatusCode == 200 {
 			break
 		}
@@ -793,7 +904,7 @@ func assertHTTPResultWithRetry(t *testing.T, output interface{}, maxWait time.Du
 }
 
 func assertHTTPHelloWorld(t *testing.T, output interface{}) bool {
-	return assertHTTPResult(t, output, func(s string) bool {
+	return assertHTTPResult(t, output, nil, func(s string) bool {
 		return assert.Equal(t, "Hello, World!\n", s)
 	})
 }
