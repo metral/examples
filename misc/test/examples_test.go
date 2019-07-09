@@ -165,7 +165,7 @@ func TestExamples(t *testing.T) {
 		base.With(integration.ProgramTestOptions{
 			Dir: path.Join(cwd, "..", "..", "aws-ts-appsync"),
 			Config: map[string]string{
-				"aws:region":         awsRegion,
+				"aws:region": awsRegion,
 			},
 		}),
 		base.With(integration.ProgramTestOptions{
@@ -456,8 +456,8 @@ func TestExamples(t *testing.T) {
 			Dir: path.Join(cwd, "..", "..", "azure-ts-webserver"),
 			Config: map[string]string{
 				"azure:location": azureLocation,
-				"username": "webmaster",
-				"password": "MySuperS3cretPassw0rd",
+				"username":       "webmaster",
+				"password":       "MySuperS3cretPassw0rd",
 			},
 			ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
 				assertHTTPResult(t, stack.Outputs["ipAddress"].(string), func(body string) bool {
@@ -469,8 +469,8 @@ func TestExamples(t *testing.T) {
 			Dir: path.Join(cwd, "..", "..", "azure-ts-webserver-component"),
 			Config: map[string]string{
 				"azure:location": azureLocation,
-				"username": "webmaster",
-				"password": "MySuperS3cretPassw0rd",
+				"username":       "webmaster",
+				"password":       "MySuperS3cretPassw0rd",
 			},
 		}),
 		base.With(integration.ProgramTestOptions{
@@ -589,7 +589,7 @@ func TestExamples(t *testing.T) {
 		}),
 
 		base.With(integration.ProgramTestOptions{
-			Dir: path.Join(cwd, "..", "..", "linode-js-webserver"),
+			Dir:    path.Join(cwd, "..", "..", "linode-js-webserver"),
 			Config: map[string]string{},
 			ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
 				endpoint := stack.Outputs["instanceIP"].(string)
@@ -602,7 +602,7 @@ func TestExamples(t *testing.T) {
 			Dir: path.Join(cwd, "..", "..", "gcp-js-webserver"),
 			Config: map[string]string{
 				"gcp:project": "pulumi-ci-gcp-provider",
-				"gcp:zone": "us-central1-a",
+				"gcp:zone":    "us-central1-a",
 			},
 			ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
 				endpoint := stack.Outputs["instanceIP"].(string)
@@ -615,16 +615,16 @@ func TestExamples(t *testing.T) {
 			Dir: path.Join(cwd, "..", "..", "gcp-py-functions"),
 			Config: map[string]string{
 				"gcp:project": "pulumi-ci-gcp-provider",
-				"gcp:zone": "us-central1-a",
+				"gcp:zone":    "us-central1-a",
 			},
 		}),
 		base.With(integration.ProgramTestOptions{
 			Dir: path.Join(cwd, "..", "..", "gcp-py-gke"),
 			Config: map[string]string{
-				"gcp:project": "pulumi-ci-gcp-provider",
-				"gcp:zone": "us-central1-a",
-				"password": "S4cretPassword!",
-				"node_count": "3",
+				"gcp:project":       "pulumi-ci-gcp-provider",
+				"gcp:zone":          "us-central1-a",
+				"password":          "S4cretPassword!",
+				"node_count":        "3",
 				"node_machine_type": "n1-standard-2",
 			},
 		}),
@@ -645,7 +645,7 @@ func TestExamples(t *testing.T) {
 			Dir: path.Join(cwd, "..", "..", "gcp-ts-functions"),
 			Config: map[string]string{
 				"gcp:project": "pulumi-ci-gcp-provider",
-				"gcp:zone": "us-central1-a",
+				"gcp:zone":    "us-central1-a",
 			},
 			ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
 				endpoint := stack.Outputs["url"].(string)
@@ -657,10 +657,10 @@ func TestExamples(t *testing.T) {
 		base.With(integration.ProgramTestOptions{
 			Dir: path.Join(cwd, "..", "..", "gcp-ts-gke"),
 			Config: map[string]string{
-				"gcp:project": "pulumi-ci-gcp-provider",
-				"gcp:zone": "us-central1-a",
-				"password": "S4cretPassword123!",
-				"nodeCount": "3",
+				"gcp:project":     "pulumi-ci-gcp-provider",
+				"gcp:zone":        "us-central1-a",
+				"password":        "S4cretPassword123!",
+				"nodeCount":       "3",
 				"nodeMachineType": "n1-standard-2",
 			},
 		}),
@@ -668,7 +668,7 @@ func TestExamples(t *testing.T) {
 			Dir: path.Join(cwd, "..", "..", "gcp-ts-gke-hello-world"),
 			Config: map[string]string{
 				"gcp:project": "pulumi-ci-gcp-provider",
-				"gcp:zone": "us-central1-a",
+				"gcp:zone":    "us-central1-a",
 			},
 			ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
 				endpoint := stack.Outputs["servicePublicIP"].(string)
@@ -682,7 +682,7 @@ func TestExamples(t *testing.T) {
 			Dir: path.Join(cwd, "..", "..", "gcp-ts-serverless-raw"),
 			Config: map[string]string{
 				"gcp:project": "pulumi-ci-gcp-provider",
-				"gcp:zone": "us-central1-a",
+				"gcp:zone":    "us-central1-a",
 			},
 			ExtraRuntimeValidation: func(t *testing.T, stack integration.RuntimeValidationStackInfo) {
 				endpoint := stack.Outputs["goEndpoint"].(string)
