@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	eksUtils "github.com/pulumi/pulumi-eks/utils"
 	"github.com/pulumi/pulumi/pkg/testing/integration"
 	"github.com/stretchr/testify/assert"
 )
@@ -96,25 +97,38 @@ func TestExamples(t *testing.T) {
 						var out []byte
 						scriptsDir := path.Join(cwd, "..", "..", "aws-ts-eks-migrate-nodegroups", "scripts")
 
-						// Extract kubeconfig and write it to a temp file
 						kubeconfig, err := json.Marshal(stack.Outputs["kubeconfig"])
+
+						// wait for all pods across all namespaces to be ready after migration
+						kubeAccess, err := eksUtils.KubeconfigToKubeAccess(kc)
+						if err != nil {
+							return nil, err
+						}
+						eksUtils.AssertAllPodsReady(t, kubeAccess.Clientset)
+
+						// drain & delete t3.2xlarge
+
+						// client-go instead of shell'ing out to kubectl
 						if !assert.NoError(t, err, "expected kubeconfig json marshaling to not error: %v", err) {
 							return
 						}
-						kubeconfigFile, err := ioutil.TempFile("/tmp", "kubeconfig-*.json")
+						// Extract kubeconfig and write it to a temp file -
+						kubeconfigFile, err := ioutil.TempFile(os.TempDir(), "kubeconfig-*.json")
 						if !assert.NoError(t, err, "expected tempfile to be created: %v", err) {
 							return
 						}
-						kubeconfigFilePath, err := filepath.Abs(filepath.Dir(kubeconfigFile.Name()))
-						if !assert.NoError(t, err, "expected tempfile path to be returned: %v", err) {
-							return
-						}
-						err = ioutil.WriteFile(kubeconfigFilePath, kubeconfig, 0644)
+						// Remember to clean up the file afterwards
+						defer os.Remove(kubeconfigFile.Name())
+						_, err = kubeconfigFile.Write(kubeconfig)
 						if !assert.NoError(t, err, "expected kubeconfig to be written to tempfile with no error: %v", err) {
 							return
 						}
-						os.Setenv("KUBECONFIG", kubeconfigFilePath)
+						os.Setenv("KUBECONFIG", kubeconfigFile.Name())
 						defer os.Remove(kubeconfigFile.Name())
+						err = kubeconfigFile.Close()
+						if !assert.NoError(t, err, "expected kubeconfig file to close with no error: %v", err) {
+							return
+						}
 
 						// Exec kubectl drain
 						out, err = exec.Command("/bin/bash", path.Join(scriptsDir, "drain-t3.2xlarge-nodes.sh")).Output()
@@ -205,6 +219,8 @@ func assertHTTPResultWithRetry(t *testing.T, output interface{}, headers map[str
 		hostname = fmt.Sprintf("http://%s", hostname)
 	}
 
+	//fmt.Printf("debug00 - hostname: %s\n", hostname)
+
 	var err error
 	var resp *http.Response
 	startTime := time.Now()
@@ -217,6 +233,12 @@ func assertHTTPResultWithRetry(t *testing.T, output interface{}, headers map[str
 		}
 
 		for k, v := range headers {
+			// Host header cannot be set via req.Header.Set(), and must be set
+			// directly.
+			if strings.ToLower(k) == "host" {
+				req.Host = v
+				continue
+			}
 			req.Header.Set(k, v)
 		}
 
@@ -226,6 +248,19 @@ func assertHTTPResultWithRetry(t *testing.T, output interface{}, headers map[str
 		if !assert.NoError(t, err, "error reading response: %v", err) {
 			return false
 		}
+
+		/*
+			// start
+			fmt.Printf("debug01 - statusCode: %d\n", resp.StatusCode)
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			if !assert.NoError(t, err) {
+				return false
+			}
+			fmt.Printf("debug02 - response body: %s\n", body)
+			// end
+		*/
+
 		if err == nil && resp.StatusCode == 200 {
 			break
 		}
