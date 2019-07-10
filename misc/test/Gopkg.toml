@@ -2,3 +2,7 @@
   name = "github.com/pulumi/pulumi"
   branch = "master"
 
+
+[[constraint]]
+  name = "github.com/pulumi/pulumi-eks"
+  version = "0.18.8"
